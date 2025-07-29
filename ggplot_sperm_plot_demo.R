@@ -141,12 +141,12 @@ create_static_sperm_plot <- function(project_data, smooth_data,
         x = pct_time,
         y = pct_complete,
         group = symv_no,
-        size = thickness,           # Variable thickness
+        linewidth = thickness,           # Variable thickness
         color = symv_no            # Individual project colors
       ),
       lineend = "round"            # Smooth line endings
     ) +
-    scale_size_identity(guide = "none") +
+    scale_linewidth_identity(guide = "none") +
     scale_color_manual(
       values = line_colors,
       name = "Contract", 
@@ -177,14 +177,14 @@ create_static_sperm_plot <- function(project_data, smooth_data,
       xintercept = 100, 
       linetype = "dotted", 
       color = "#4682b4", 
-      size = 0.7
+      linewidth = 0.7
     ) +  # Project deadline
     
     geom_abline(
       slope = 1, intercept = 0, 
       linetype = "dashed", 
       color = "darkgrey", 
-      size = 0.5
+      linewidth = 0.5
     ) +  # Ideal progress line
     
     # Axis configuration
@@ -201,7 +201,7 @@ create_static_sperm_plot <- function(project_data, smooth_data,
       breaks = seq(0, 100, by = 20),
       labels = function(x) paste0(x, "%")
     ) +
-    
+    coord_fixed() +
     # Titles and labels
     labs(
       title = "Project Timeline Swimming Pool",
