@@ -108,7 +108,7 @@ df_smooth <- project_data %>%
     # Calculate line thickness: thicker = more recent data
     thickness = scales::rescale(
       max(project_data$months_ago) - months_ago,
-      to = c(0.2, 1.5)  # Range from thin (old) to thick (recent)
+      to = c(0.2, 1.2)  # Range from thin (old) to thick (recent)
     )
   )
 
