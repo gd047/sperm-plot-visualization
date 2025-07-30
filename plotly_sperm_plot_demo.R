@@ -130,7 +130,10 @@ create_sperm_plot <- function(data, width = 1130, height = 750) {
       textfont = list(color = primary_color, size = 12),
       textposition = 'top center',
       showlegend = FALSE,                  # Don't show in legend
-      hoverinfo = 'skip'                   # Skip hover for text labels
+      hoverinfo = 'skip',                   # Skip hover for text labels
+      # Clean inherited properties
+      line = NULL,           
+      marker = NULL          
     ) %>%
     
     # Configure layout and reference lines
