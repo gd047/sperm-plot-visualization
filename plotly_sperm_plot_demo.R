@@ -113,7 +113,10 @@ create_sperm_plot <- function(data, width = 1130, height = 750) {
       ),
       
       # Disable default hover - we'll implement custom hover
-      hoverinfo = 'none'
+      hoverinfo = 'none',
+      # Set plot dimensions
+      width = width,
+      height = height
     ) %>%
     
     # Add project labels at current position (months_ago = 0)
@@ -190,11 +193,8 @@ create_sperm_plot <- function(data, width = 1130, height = 750) {
           bgcolor = "rgba(255,255,255,0.9)",
           font = list(size = 11)
         )
-      ),
-      
-      # Set plot dimensions
-      width = width,
-      height = height
+      )
+
     ) %>%
     
     # =================================================================
@@ -246,7 +246,7 @@ create_sperm_plot <- function(data, width = 1130, height = 750) {
 sperm_plot <- create_sperm_plot(df_plot)
 
 # Display the plot
-sperm_plot
+print(sperm_plot)
 
 # =============================================================================
 # INTERPRETATION GUIDE
