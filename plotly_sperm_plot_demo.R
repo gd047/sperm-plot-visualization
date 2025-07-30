@@ -83,7 +83,7 @@ primary_color <- "#4682b4"  # Steel blue for main elements
 # CREATE THE SPERM PLOT™
 # =============================================================================
 
-create_sperm_plot <- function(data, width = 1130, height = 750) {
+create_sperm_plot <- function(data, width = 1000, height = 750) {
   
   # Main plot with trajectory lines and points
   p <- data %>%
@@ -124,13 +124,18 @@ create_sperm_plot <- function(data, width = 1130, height = 750) {
       data = filter(data, months_ago == 0),
       x = ~pct_time,
       y = ~pct_complete,
+      customdata = ~custom_data,
+      name = ~symv_no,                  # ← Explicit name
       type = 'scatter',
-      mode = 'text',
+      mode = 'text+markers',
       text = ~symv_no,
       textfont = list(color = primary_color, size = 12),
       textposition = 'top center',
-      showlegend = FALSE,                  # Don't show in legend
-      hoverinfo = 'skip'                   # Skip hover for text labels
+      marker = list(size = 8, color = primary_color, opacity = 1),
+      line = NULL,
+      inherit = FALSE,
+      showlegend = FALSE,
+      hoverinfo = 'skip'
     ) %>%
     
     # Configure layout and reference lines
