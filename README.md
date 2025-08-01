@@ -119,6 +119,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
   - **Claude Sonnet 4** - Advanced reasoning, code optimization, and technical problem-solving
   - **ChatGPT o4-mini (Advanced Data Analysis)** - Data processing and analytical insights
 
+## 🔍 Related Keywords
+
+sperm plot, R data visualization, trajectory plot in R, ggplot2, plotly, tidyverse graphics, project management
+
 *This project showcases the power of human-AI collaboration in data visualization innovation.*
 
 ---
