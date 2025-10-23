@@ -11,14 +11,20 @@
 #
 # Features:
 # - Interactive hover with custom positioning
-# - Click-to-hide legend functionality  
+# - Click-to-hide legend functionality
 # - Monotonic project progression tracking
 # - Time vs Completion percentage analysis
+# - Parent/child contract aggregation support
+# - Trajectory slope and angle calculation
+# - Completion prediction based on current trajectory
+# - Dynamic prediction line visualization on hover
 #
 # =============================================================================
 
 # Load required libraries
 library(dplyr)
+library(stringr)
+library(lubridate)
 library(plotly)
 library(htmlwidgets)
 
@@ -54,26 +60,115 @@ add_derived_columns <- function(raw_data) {
     )
 }
 
-# Process raw data to get full dataset for visualization
-project_data <- add_derived_columns(raw_project_data)
+# =============================================================================
+# CONTRACT AGGREGATION
+# =============================================================================
+# This section handles parent/child contract relationships
+# Contracts with "/" in their code (e.g., "PROJ_01/A") are aggregated with
+# their parent contract (e.g., "PROJ_01")
 
-# Prepare data for visualization
+# Step 1: Extract base contract code (parent) from contract numbers
+df_with_base <- raw_project_data %>%
+  mutate(
+    base_code = str_extract(symv_no, "^[^/]+")  # Extract everything before "/"
+  )
+
+# Step 2: Aggregate parent + children contracts at each snapshot
+df_aggregated <- df_with_base %>%
+  group_by(base_code, snapshot_date, months_ago) %>%
+  summarise(
+    cur_symvat = sum(cur_symvat, na.rm = TRUE),  # Sum budgets
+    sum_work = sum(sum_work, na.rm = TRUE),      # Sum work completed
+    .groups = "drop"
+  )
+
+# Step 3: Inherit start/end dates from parent contract
+df_with_dates <- df_aggregated %>%
+  left_join(
+    df_with_base %>%
+      filter(symv_no == base_code) %>%  # Only parent contracts have dates
+      select(base_code, snapshot_date, months_ago, start_date, end_date),
+    by = c("base_code", "snapshot_date", "months_ago")
+  )
+
+# Step 4: Finalize aggregated data structure
+project_data_aggregated <- df_with_dates %>%
+  select(
+    symv_no = base_code,  # Use base code as contract identifier
+    months_ago, snapshot_date,
+    start_date, end_date,
+    cur_symvat, sum_work
+  ) %>%
+  arrange(symv_no, months_ago)
+
+# Process aggregated data to calculate metrics
+project_data <- add_derived_columns(project_data_aggregated)
+
+# =============================================================================
+# SLOPE AND PREDICTION CALCULATIONS
+# =============================================================================
+# Calculate trajectory slope and predict final completion percentage
+
+project_data <- project_data %>%
+  group_by(symv_no) %>%
+  mutate(
+    # Get coordinates from oldest snapshot (max months_ago)
+    x1 = pct_time[which.max(months_ago)],
+    y1 = pct_complete[which.max(months_ago)],
+
+    # Get coordinates from most recent snapshot (months_ago == 0)
+    x2 = pct_time[months_ago == 0],
+    y2 = pct_complete[months_ago == 0],
+
+    # Calculate trajectory slope
+    slope = (y2 - y1) / (x2 - x1),
+
+    # Calculate trajectory angle in degrees
+    angle_num = atan(slope) * 180 / pi,
+
+    # Predict completion at 100% time based on current trajectory
+    prediction_num = y2 + slope * (100 - x2),
+
+    # Format for display with comma as decimal separator and 2 decimal places
+    angle = paste0(
+      str_replace(formatC(angle_num, format = "f", digits = 2), "\\.", ","),
+      "°"
+    ),
+    prediction = paste0(
+      str_replace(formatC(prediction_num, format = "f", digits = 2), "\\.", ","),
+      "%"
+    )
+  ) %>%
+  ungroup() %>%
+  select(-x2, -y2, -slope, -angle_num)  # Keep x1, y1, prediction_num for visualization
+
+# =============================================================================
+# PREPARE DATA FOR VISUALIZATION
+# =============================================================================
+
 df_plot <- project_data %>%
   arrange(symv_no, months_ago) %>%
   mutate(
     # Format date for display
     formatted_date = format(snapshot_date, "%Y/%m"),
-    
+
     # Create hover text (currently unused due to custom hover implementation)
     hover_text = paste0(
       "Contract: ", symv_no, "\n",
       "Months ago: ", months_ago, " (", formatted_date, ")\n",
       "% Time elapsed: ", round(pct_time, 1), "%\n",
-      "% Completion: ", round(pct_complete, 1), "%"
+      "% Completion: ", round(pct_complete, 1), "%\n",
+      "Angle: ", angle, "\n",
+      "Prediction: ", prediction
     ),
-    
-    # Custom data for hover box (combines months_ago and formatted_date)
-    custom_data = paste(months_ago, formatted_date, sep = "|")
+
+    # Extended custom data for hover box
+    # Format: months_ago|formatted_date|angle|prediction|x1|y1|prediction_num
+    custom_data = paste(
+      months_ago, formatted_date, angle, prediction,
+      x1, y1, prediction_num,
+      sep = "|"
+    )
   )
 
 # Define color scheme
@@ -203,39 +298,77 @@ create_sperm_plot <- function(data, width = 1000, height = 750) {
     ) %>%
     
     # =================================================================
-    # CUSTOM HOVER IMPLEMENTATION
+    # CUSTOM HOVER IMPLEMENTATION WITH PREDICTION LINE
     # =================================================================
     # This solves the common issue where hover tooltips obscure
-    # subsequent data points in upward-trending trajectories
+    # subsequent data points in upward-trending trajectories.
+    # Additionally displays trajectory angle, prediction, and prediction line.
     #
     htmlwidgets::onRender("
       function(el, x) {
-        
+
+        // Store original shapes for restoration after unhover
+        var originalShapes = el.layout.shapes ? el.layout.shapes.slice() : [];
+
+        // Clean up any existing listeners (safety)
+        el.removeAllListeners && el.removeAllListeners('plotly_hover');
+        el.removeAllListeners && el.removeAllListeners('plotly_unhover');
+
         // Event listener for hover events
         el.on('plotly_hover', function(eventData) {
-          
+
           // Extract information from the hovered point
           var point = eventData.points[0];
-          
-          // Parse custom data (months_ago|formatted_date)
+
+          // Parse custom data: months_ago|formatted_date|angle|prediction|x1|y1|prediction_num
           var customParts = point.customdata.split('|');
           var monthsAgo = customParts[0];
           var formattedDate = customParts[1];
-          
-          // Build information text
+          var angle = customParts[2];
+          var prediction = customParts[3];
+          var x1 = parseFloat(customParts[4]);
+          var y1 = parseFloat(customParts[5]);
+          var predNum = parseFloat(customParts[6]);
+
+          // Build information text with angle and prediction
           var infoText = 'Contract: ' + point.data.name + '<br>' +
                         'Months ago: ' + monthsAgo + ' (' + formattedDate + ')<br>' +
                         '% Time: ' + point.x.toFixed(1) + '%<br>' +
-                        '% Completion: ' + point.y.toFixed(1) + '%';
-          
-          // Update the annotation box with hover information
-          Plotly.relayout(el, 'annotations[0].text', infoText);
+                        '% Completion: ' + point.y.toFixed(1) + '%<br>' +
+                        'Angle: ' + angle + '<br>' +
+                        'Prediction: ' + prediction;
+
+          // Create prediction line shape
+          var predictionLine = {
+            type: 'line',
+            x0: x1,
+            y0: y1,
+            x1: 100,
+            y1: predNum,
+            line: {
+              color: 'darkgray',
+              width: 1.5,
+              dash: 'dot'
+            }
+          };
+
+          // Add prediction line to existing shapes
+          var newShapes = originalShapes.concat([predictionLine]);
+
+          // Update both annotation text and shapes simultaneously
+          Plotly.relayout(el, {
+            'annotations[0].text': infoText,
+            'shapes': newShapes
+          });
         });
-        
-        // Event listener for unhover events  
+
+        // Event listener for unhover events
         el.on('plotly_unhover', function() {
-          // Reset to default text
-          Plotly.relayout(el, 'annotations[0].text', 'Hover over points for details');
+          // Restore original state (remove prediction line and reset text)
+          Plotly.relayout(el, {
+            'annotations[0].text': 'Hover over points for details',
+            'shapes': originalShapes
+          });
         });
       }
     ")
@@ -282,8 +415,17 @@ print(sperm_plot)
 #
 # INTERACTIVE FEATURES:
 # - Hover: Custom positioned information box (solves UX issue)
+#   * Shows trajectory angle and completion prediction
+#   * Displays dynamic prediction line extending to 100% time
 # - Legend: Click to hide/show individual project trajectories
 # - Zoom: Mouse wheel or selection box for detailed analysis
+#
+# PREDICTION METRICS:
+# - Angle: Trajectory slope in degrees (positive = progress, negative = regress)
+# - Prediction: Estimated completion % at project deadline (100% time)
+#   * Based on linear extrapolation of trajectory from oldest to newest snapshot
+#   * Values > 100% indicate project will exceed target
+#   * Values < 100% indicate project will fall short
 #
 # =============================================================================
 
