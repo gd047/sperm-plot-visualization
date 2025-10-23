@@ -12,9 +12,10 @@
 - [Quick Start](#quick-start)
 - [Data Requirements](#data-requirements)
 - [Key Features](#key-features)
+- [Advanced Analytics](#advanced-analytics)
 - [Installation](#installation)
 - [Real-World Applications](#real-world-applications)
-- [Why “Sperm Plot”?](#why-sperm-plot)
+- [Why "Sperm Plot"?](#why-sperm-plot)
 - [Contributing](#contributing)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
@@ -78,6 +79,9 @@ The Sperm Plot works with **minimal data**. Your dataset should include:
 
 ### Interactive Version (Plotly)
 - **Custom hover positioning** – solves the tooltip obstruction problem.
+- **Trajectory analytics** – displays angle and completion prediction for each snapshot.
+- **Dynamic prediction line** – visual projection extending from trajectory start to predicted endpoint.
+- **Contract aggregation** – automatically combines parent/child contracts (e.g., "PROJ_01" + "PROJ_01/A").
 - **Click-to-hide legend** – filter projects interactively.
 - **Responsive design** – works on desktop and tablets.
 - **Export options** – save as HTML or PNG.
@@ -88,13 +92,50 @@ The Sperm Plot works with **minimal data**. Your dataset should include:
 - **Anti-collision labels** – clean, readable project names.
 - **High-resolution export** – perfect for reports and slides.
 
+## Advanced Analytics
+
+The Plotly interactive version includes sophisticated analytical features:
+
+### 📊 Trajectory Slope & Angle
+Calculates the trajectory angle (in degrees) based on the linear slope between the oldest and most recent snapshots:
+- **Positive angles**: Projects making progress toward completion
+- **Negative angles**: Projects regressing (rare, but possible)
+- **Steep angles**: Rapid progress acceleration
+- **Shallow angles**: Slow or stagnant progress
+
+### 🎯 Completion Prediction
+Estimates the final completion percentage at the project deadline (100% time) using linear extrapolation:
+- **> 100%**: Project will likely exceed targets
+- **≈ 100%**: Project on track to complete on time
+- **< 100%**: Project will likely fall short without intervention
+
+**Formula**: Based on the trajectory slope from the first to the last snapshot, the prediction extends to 100% time.
+
+### 📈 Dynamic Prediction Line
+When hovering over any data point:
+- A **dotted gray line** appears showing the projected trajectory
+- Extends from the trajectory's **starting point** (oldest snapshot)
+- Projects to **100% time** (project deadline)
+- The endpoint represents the **predicted completion percentage**
+
+This visual aid helps quickly assess whether current progress rates will lead to successful project completion.
+
+### 🔗 Parent/Child Contract Aggregation
+Automatically handles complex contract structures:
+- Detects relationships like `"PROJ_01"` (parent) and `"PROJ_01/A"` (child)
+- Aggregates budgets and work completed across related contracts
+- Inherits start/end dates from parent contracts
+- Displays unified trajectories for contract families
+
+**Use case**: When projects have amendments, sub-contracts, or phases tracked separately but need to be analyzed as a whole.
+
 ## Installation
 
 Ensure you have `R` installed. Then install required packages:
 
 ```r
 install.packages(c(
-  "dplyr", "plotly", "htmlwidgets",
+  "dplyr", "stringr", "lubridate", "plotly", "htmlwidgets",
   "tidyverse", "scales", "ggrepel"
 ))
 ```
@@ -141,7 +182,7 @@ This project is licensed under the MIT License – see the [LICENSE](LICENSE) fi
 
 ## Related Keywords
 
-project timeline visualization, trajectory plot in R, project progress chart, schedule variance visualization, interactive R charts, ggplot2, plotly, tidyverse, project management analytics.
+project timeline visualization, trajectory plot in R, project progress chart, schedule variance visualization, interactive R charts, ggplot2, plotly, tidyverse, project management analytics, completion prediction, trajectory analysis, slope calculation, parent-child contract aggregation, project forecasting, progress tracking dashboard.
 
 ---
 
